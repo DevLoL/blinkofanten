@@ -1,10 +1,20 @@
-/* 
-blinkytest 
-for blinkofant
+  
+  /*
+  blinkytest
+  for blinkofant
 
-wizard23
+  wizard23
+  TomK32
 
-1 modul braucht 1.2A
+  1 modul consumes 1.2A if fully lit
+  If your LED drivers are the 5V compatible LS3654LS,
+  you can remove the 7805 and 7808 regulators, and connect the
+  5V and 8V with a 5V source. Saves space
+
+  Useful information:
+  http://metalab.at/wiki/Blinkofant
+  https://www.binary-kitchen.de/wiki/doku.php?id=projekte:ledmatrix:start
+  https://devlol.org/wiki/Blinkofant
 
 */
 
@@ -15,30 +25,43 @@ wizard23
 // this goes on panel to pin #10
 
 #define DATA_PIN 11
-// this goes on panel to pin #8 
+// this goes on panel to pin #8
 
 #define CLOCK_PIN 13
-// this goes on panel to pin #4 
+// this goes on panel to pin #4
 
-#define PANELS 2
+#define PANELS 3
 #define PANELDATA_SIZE (10*PANELS)
 
 uint8_t panelData[PANELDATA_SIZE];
 
+void setBlink(int value) {
+  panelData[0] = value;
+}
+
+// set pixels on a specific panel
+void setPixel(int x, int y, int panel, int value) {
+  if (panel >= PANELS) {
+    // out of bounds
+    return;
+  }
+  setPixel(x + (panel * 8), y, value);
+}
+
 void setPixel(int x, int y, int value)
 {
-  int index = (y+1) + x*10; // y+1 because 1st bit controlls blinking
+  int index = (y + 1) + x * 10; // y+1 because 1st bit controlls blinking
   int byteNr = index >> 3; // division by 8
   int bitNr = index & 0x7; // rest bei div durch 8
- 
-   if (value)
-   {
-     panelData[byteNr] |= 1 << bitNr;
-   }
-   else
-   {
-     panelData[byteNr] &= ~(1 << bitNr);
-   }
+
+  if (value)
+  {
+    panelData[byteNr] |= 1 << bitNr;
+  }
+  else
+  {
+    panelData[byteNr] &= ~(1 << bitNr);
+  }
 }
 
 void setAllPixel(uint8_t value)
@@ -50,123 +73,118 @@ void setAllPixel(uint8_t value)
 }
 
 
-/*  we use SPI now ;)
-void shiftPixelData()
-{
+void shiftPixelData() {
   screen_off();
-  
-  for (int i = 0; i < PANELDATA_SIZE; i++)
-  {
+
+  for (int i = 0; i < PANELDATA_SIZE; i++) {
     uint8_t value = panelData[i];
 
-    shiftOut(DATA_PIN, CLOCK_PIN, LSBFIRST, panelData[i]);
-  }
-  
-  screen_on();
-}
-*/
-
-
-void shiftPixelData()
-{
-  screen_off();
-  
-  for (int i = 0; i < PANELDATA_SIZE; i++)
-  {
-    uint8_t value = panelData[i];
-    
     SPDR = panelData[i];
-    while(!(SPSR & (1<<SPIF)));
+    while (!(SPSR & (1 << SPIF)));
   }
-  
   screen_on();
-    
-
 }
-
-
 
 void setup()
 {
-  pinMode(CLEAR_PANEL_PIN,OUTPUT);
-  pinMode(DATA_PIN,OUTPUT);
-  pinMode(CLOCK_PIN,OUTPUT);
-  
-  digitalWrite(CLEAR_PANEL_PIN,LOW);
-  digitalWrite(DATA_PIN,LOW);
-  digitalWrite(CLOCK_PIN,LOW);
-  
-  
-    SPI.begin();
-    SPI.setBitOrder(LSBFIRST);
-    SPI.setDataMode(SPI_MODE0);
-    SPI.setClockDivider(SPI_CLOCK_DIV128); // biggest divider there is.
-    
+  Serial.begin(9600);
+  pinMode(CLEAR_PANEL_PIN, OUTPUT);
+  pinMode(DATA_PIN, OUTPUT);
+  pinMode(CLOCK_PIN, OUTPUT);
 
+  digitalWrite(CLEAR_PANEL_PIN, LOW);
+  digitalWrite(DATA_PIN, LOW);
+  digitalWrite(CLOCK_PIN, LOW);
+
+  SPI.begin();
+  SPI.setBitOrder(LSBFIRST);
+  SPI.setDataMode(SPI_MODE0);
+  SPI.setClockDivider(SPI_CLOCK_DIV128); // biggest divider there is.
 }
-
-
 
 
 void screen_off()
 {
-    digitalWrite(CLEAR_PANEL_PIN,LOW);
+  digitalWrite(CLEAR_PANEL_PIN, LOW);
 }
 
 void screen_on()
 {
-    digitalWrite(CLEAR_PANEL_PIN,HIGH);
+  digitalWrite(CLEAR_PANEL_PIN, HIGH);
 }
 
 
 int state = 0;
-  
+
+int fps = 1000 / 30;
+void snake() {
+  static unsigned int pos = 0;
+  static unsigned int length = 0;
+
+  int new_pos = (millis() / fps) % (8 * PANELS * 9);
+  if (pos == new_pos) {
+    return;
+  } else if (pos > new_pos) {
+    length++;
+    Serial.println(length);
+    if (length > 8 * PANELS * 9) {
+      length = 0;
+    }
+  }
+  pos = new_pos;
+
+  setAllPixel(0);
+  int y = (pos / (8 * PANELS));
+  for (int i = 0; i <= length; i++) {
+    if (y < (pos + i) / (8 * PANELS)) {
+      y++;
+    }
+    setPixel((pos + i) % (8 * PANELS), y % 9, 0, 1);
+  }
+}
+
+void flashPanels() {
+  fps = 1000;
+  static unsigned int panel = -1;
+
+  int new_pos = (millis() / fps) % PANELS;
+  if (panel == new_pos) {
+    return;
+  }
+  panel = new_pos;
+
+  for (int x = 0; x < 8; x++) {
+    for (int y = 0; y < 9; y++) {
+      setPixel(x, y, panel, 1);
+    }
+  }
+}
+
+void soulmates(x1, y1, x2, y2) {
+  static bool state = true;
+  state = !state;
+  setPixel(state ? x1 : x2, state ? y1 y2, 1);
+}
+
+void stars(int num, bool value) {
+  for (int i=0; i < num; i++) {
+    setPixel(random(0, 7), random(0, 8), random(0, 3), value);
+  }
+}
+
 void loop ()
 {
-    state++;
-    
-    
-  for (int x = 0; x < 8*PANELS; x++)
-  {
-    for (int y = 0; y < 9; y++)
-    {
-      setPixel(x, y, state % 2);
-    }
-  }
   
-  shiftPixelData();  
-  delay(5000);
-  return;
-    
-  /*  
-  for (int x = 0; x < 8*PANELS; x++)
-  {
-    for (int y = 0; y < 9; y++)
-    {
-      setPixel(x, y, ((x>>1)+(y>>1)+state)&1);
-    }
-  }
-  
-  shiftPixelData();  
-  delay(4);
-  return;
-  */
-  for (int x = 0; x < 8*PANELS; x++)
-  {
-    for (int y = 0; y < 9; y++)
-    {
-      //setPixel(x, y, ((x>>1) + (y>>1) + state) & 1);
-      float dx = x-4;
-      float dy = y-4;
-      float d = sqrt(dx*dx+dy*dy); 
-      int ds = 3*d+state;
-      setPixel(x, y, (ds % 20) <= 10);
-    }
-  }
-  
+  setAllPixel(0);
+
+  // uncomment any of these demo modes
+  //snake();
+  //flashPanels();
+  //stars(3, 1);
+  soulmates();
+
   shiftPixelData();
-  delay(5);
 
+  delay(300);
 
-  
 }

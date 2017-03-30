@@ -20,15 +20,15 @@
 
 
 #include "SPI.h"
-
-#define CLEAR_PANEL_PIN 10
-// this goes on panel to pin #10
-
-#define DATA_PIN 11
-// this goes on panel to pin #8
-
-#define CLOCK_PIN 13
-// this goes on panel to pin #4
+#ifdef ESP8266_WEMOS_D1MINI
+  #define CLEAR_PANEL_PIN D8 // pin #10 on the blinkofant panel
+  #define DATA_PIN D7 // pin #8
+  #define CLOCK_PIN D5 // pin #4
+#else
+  #define CLEAR_PANEL_PIN 10 // this goes on panel to pin #10 on the blinkofant panel
+  #define DATA_PIN 11 // pin #8
+  #define CLOCK_PIN 13 // pin #4
+#endif
 
 #define PANELS 3
 #define PANELDATA_SIZE (10*PANELS)

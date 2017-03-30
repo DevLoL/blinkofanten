@@ -143,6 +143,27 @@ void snake() {
   }
 }
 
+void scanner(int panel) {
+  static int col = 0;
+  static int row = 0;
+  static bool is_row = true;
+  if (is_row) {
+    for(int c=0; c < 8; c++) {
+      setPixel(c, row, 1); 
+    }
+    row++;
+    if (row > 8) { row = 0; is_row = !is_row; }
+  } else {
+    for(int r=0; r < 9; r++) {
+      setPixel(col, r, 1);
+    }
+    col++;
+    if (col > 9) { col = 0; is_row = !is_row; }
+  }
+  
+  //setPixel(col, row, 1);
+}
+
 void flashPanels() {
   fps = 1000;
   static unsigned int panel = -1;
